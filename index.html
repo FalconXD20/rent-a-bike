@@ -1,0 +1,1373 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rent a Bike — Gestão de Locação</title>
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Fonte Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Ícones Lucide via CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              green: '#10B981',
+              greenHover: '#059669',
+              navy: '#2A3F54',
+              navyLight: '#34495E',
+              surface: '#F4F7F9',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Ajustes finos de scrollbar e animações */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #CBD5E1;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94A3B8;
+    }
+    @keyframes slideInRight {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    .toast-enter {
+      animation: slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+  </style>
+</head>
+<body class="bg-brand-surface text-slate-800 font-sans antialiased selection:bg-brand-green/20 selection:text-brand-navy overflow-x-hidden">
+
+  <!-- Cabeçalho Superior (Inspirado no protótipo com estética refinada) -->
+  <header class="sticky top-0 z-30 flex items-center justify-between bg-white border-b border-slate-200/80 shadow-sm h-16">
+    <!-- Bloco Esquerdo: Logo Verde + Faixa Escura Navy + Botão Nova Locação -->
+    <div class="flex items-center h-full">
+      <!-- Quadrado Verde da Marca -->
+      <div class="w-16 h-full bg-brand-green flex items-center justify-center text-white shrink-0 cursor-pointer transition-colors hover:bg-brand-greenHover" onclick="switchTab('dashboard')" title="Início">
+        <i data-lucide="bike" class="w-7 h-7 stroke-[2.2]"></i>
+      </div>
+      <!-- Faixa Escura com Título -->
+      <div class="h-full bg-brand-navy px-5 sm:px-6 flex items-center shrink-0">
+        <span class="text-white font-bold text-lg sm:text-xl tracking-tight">Rent a Bike</span>
+      </div>
+      <!-- Botão Principal + Nova Locação -->
+      <div class="px-3 sm:px-6">
+        <button onclick="openNewRentalModal()" class="inline-flex items-center gap-2 bg-brand-green hover:bg-brand-greenHover active:scale-[0.98] text-white font-semibold text-sm px-4 py-2.5 rounded-lg shadow-sm shadow-brand-green/25 transition-all cursor-pointer">
+          <i data-lucide="plus" class="w-4 h-4 stroke-[2.5]"></i>
+          <span>Nova Locação</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Bloco Direito: Busca Rápida + Reset Demo + Avatar Operador -->
+    <div class="flex items-center gap-3 sm:gap-4 pr-4 sm:pr-6">
+      <!-- Campo de Busca Rápida -->
+      <div class="relative hidden md:block w-64 lg:w-72">
+        <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+        <input
+          type="text"
+          id="globalSearch"
+          oninput="handleSearch(this.value)"
+          placeholder="Buscar bike ou cliente..."
+          class="w-full pl-10 pr-8 py-2 bg-slate-100/90 hover:bg-slate-100 focus:bg-white text-sm text-slate-700 placeholder-slate-400 rounded-lg border border-transparent focus:border-brand-green focus:ring-2 focus:ring-brand-green/15 outline-none transition-all"
+        >
+        <button id="clearSearchBtn" onclick="clearSearch()" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-3.5 h-3.5"></i>
+        </button>
+      </div>
+
+      <!-- Botão Restaurar Dados de Exemplo (Útil para testes) -->
+      <button onclick="openResetModal()" title="Restaurar dados iniciais de teste" class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+        <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+      </button>
+
+      <!-- Avatar / Perfil Operador -->
+      <div class="flex items-center gap-2.5 pl-1 border-l border-slate-200">
+        <div class="w-9 h-9 rounded-full bg-slate-200 text-brand-navy font-bold text-xs flex items-center justify-center ring-2 ring-white shadow-sm">
+          OP
+        </div>
+        <div class="hidden xl:block text-left leading-tight">
+          <p class="text-xs font-semibold text-slate-700">Balcão 01</p>
+          <p class="text-[11px] text-emerald-600 font-medium flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span> Online
+          </p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Barra de Busca Mobile (Aparece apenas em telas menores que md) -->
+  <div class="md:hidden bg-white px-4 py-2.5 border-b border-slate-200">
+    <div class="relative">
+      <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+      <input
+        type="text"
+        id="mobileSearch"
+        oninput="handleSearch(this.value)"
+        placeholder="Buscar bike (ex: BIKE-01) ou cliente..."
+        class="w-full pl-9 pr-4 py-2 bg-slate-100 text-sm rounded-lg outline-none focus:bg-white focus:ring-2 focus:ring-brand-green/20 border border-transparent focus:border-brand-green"
+      >
+    </div>
+  </div>
+
+  <!-- Layout Principal: Barra Lateral Compacta + Área de Conteúdo -->
+  <div class="flex min-h-[calc(100vh-4rem)]">
+    
+    <!-- Barra Lateral Compacta (Desktop) / Inferior (Mobile) -->
+    <aside class="w-16 bg-white border-r border-slate-200/80 flex flex-col items-center py-4 gap-3 shrink-0 z-20">
+      <button onclick="switchTab('dashboard')" id="nav-dashboard" title="Painel Principal" class="nav-btn group relative w-11 h-11 rounded-xl flex items-center justify-center transition-all bg-brand-navy/10 text-brand-navy">
+        <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+        <span class="hidden lg:group-hover:block absolute left-14 bg-slate-800 text-white text-xs font-medium px-2.5 py-1.5 rounded-md whitespace-nowrap shadow-lg pointer-events-none z-50">Painel Principal</span>
+      </button>
+
+      <button onclick="switchTab('fleet')" id="nav-fleet" title="Gestão da Frota" class="nav-btn group relative w-11 h-11 rounded-xl flex items-center justify-center transition-all text-slate-400 hover:text-brand-navy hover:bg-slate-100">
+        <i data-lucide="bike" class="w-5 h-5"></i>
+        <span class="hidden lg:group-hover:block absolute left-14 bg-slate-800 text-white text-xs font-medium px-2.5 py-1.5 rounded-md whitespace-nowrap shadow-lg pointer-events-none z-50">Frota de Bicicletas</span>
+      </button>
+
+      <button onclick="switchTab('clients')" id="nav-clients" title="Clientes Cadastrados" class="nav-btn group relative w-11 h-11 rounded-xl flex items-center justify-center transition-all text-slate-400 hover:text-brand-navy hover:bg-slate-100">
+        <i data-lucide="users" class="w-5 h-5"></i>
+        <span class="hidden lg:group-hover:block absolute left-14 bg-slate-800 text-white text-xs font-medium px-2.5 py-1.5 rounded-md whitespace-nowrap shadow-lg pointer-events-none z-50">Clientes</span>
+      </button>
+
+      <button onclick="switchTab('history')" id="nav-history" title="Histórico e Caixa" class="nav-btn group relative w-11 h-11 rounded-xl flex items-center justify-center transition-all text-slate-400 hover:text-brand-navy hover:bg-slate-100">
+        <i data-lucide="receipt" class="w-5 h-5"></i>
+        <span class="hidden lg:group-hover:block absolute left-14 bg-slate-800 text-white text-xs font-medium px-2.5 py-1.5 rounded-md whitespace-nowrap shadow-lg pointer-events-none z-50">Histórico e Caixa</span>
+      </button>
+    </aside>
+
+    <!-- Conteúdo Principal -->
+    <main class="flex-1 p-4 sm:p-6 lg:p-7 max-w-[1600px] w-full mx-auto space-y-6">
+
+      <!-- ============================================================== -->
+      <!-- ABA 1: PAINEL PRINCIPAL (DASHBOARD)                            -->
+      <!-- ============================================================== -->
+      <section id="view-dashboard" class="space-y-6">
+        
+        <!-- 4 Cards de Indicadores Rápidos (KPIs no topo) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-5">
+          <!-- Card 1: Total de Bicicletas -->
+          <div class="bg-white rounded-xl p-5 border border-slate-200/80 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-medium text-slate-500">Total de Bicicletas:</span>
+              <span class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">
+                <i data-lucide="bike" class="w-4 h-4"></i>
+              </span>
+            </div>
+            <div class="mt-2 flex items-baseline justify-between">
+              <span id="kpi-total" class="text-3xl font-extrabold text-slate-900 tracking-tight">0</span>
+              <span class="text-xs font-medium text-slate-400">Frota cadastrada</span>
+            </div>
+            <div class="mt-3 w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+              <div class="bg-brand-navy h-full rounded-full w-full"></div>
+            </div>
+          </div>
+
+          <!-- Card 2: Disponíveis -->
+          <div onclick="filterFleetFromKpi('disponivel')" class="cursor-pointer bg-white rounded-xl p-5 border border-slate-200/80 shadow-sm hover:shadow-md hover:border-emerald-200 transition-all flex flex-col justify-between">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-medium text-slate-500">Disponíveis:</span>
+              <span class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+              </span>
+            </div>
+            <div class="mt-2 flex items-baseline justify-between">
+              <span id="kpi-available" class="text-3xl font-extrabold text-slate-900 tracking-tight">0</span>
+              <span id="kpi-available-pct" class="text-xs font-semibold text-emerald-600">0%</span>
+            </div>
+            <div class="mt-3 w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+              <div id="bar-available" class="bg-brand-green h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <!-- Card 3: Alugadas -->
+          <div onclick="filterFleetFromKpi('alugada')" class="cursor-pointer bg-white rounded-xl p-5 border border-slate-200/80 shadow-sm hover:shadow-md hover:border-blue-200 transition-all flex flex-col justify-between">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-medium text-slate-500">Alugadas:</span>
+              <span class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+                <i data-lucide="clock" class="w-4 h-4"></i>
+              </span>
+            </div>
+            <div class="mt-2 flex items-baseline justify-between">
+              <span id="kpi-rented" class="text-3xl font-extrabold text-slate-900 tracking-tight">0</span>
+              <span id="kpi-rented-pct" class="text-xs font-semibold text-blue-600">0%</span>
+            </div>
+            <div class="mt-3 w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+              <div id="bar-rented" class="bg-blue-600 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <!-- Card 4: Em Manutenção -->
+          <div onclick="filterFleetFromKpi('manutencao')" class="cursor-pointer bg-white rounded-xl p-5 border border-slate-200/80 shadow-sm hover:shadow-md hover:border-amber-200 transition-all flex flex-col justify-between">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-medium text-slate-500">Em Manutenção:</span>
+              <span class="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+                <i data-lucide="wrench" class="w-4 h-4"></i>
+              </span>
+            </div>
+            <div class="mt-2 flex items-baseline justify-between">
+              <span id="kpi-maintenance" class="text-3xl font-extrabold text-slate-900 tracking-tight">0</span>
+              <span id="kpi-maintenance-pct" class="text-xs font-semibold text-amber-600">0%</span>
+            </div>
+            <div class="mt-3 w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+              <div id="bar-maintenance" class="bg-amber-500 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Grid Principal: Locações Ativas (Esquerda ~62%) + Frota de Bicicletas (Direita ~38%) -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          
+          <!-- Coluna Esquerda: Locações Ativas -->
+          <div class="lg:col-span-7 xl:col-span-8 bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+              <div class="flex items-center gap-2.5">
+                <h2 class="text-lg font-bold text-slate-800">Locações Ativas</h2>
+                <span id="activeRentalsBadge" class="px-2.5 py-0.5 text-xs font-bold bg-blue-50 text-blue-700 rounded-full">0</span>
+              </div>
+              <span class="text-xs text-slate-400 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-brand-green animate-pulse"></span>
+                Atualização de tempo em tempo real
+              </span>
+            </div>
+
+            <!-- Tabela Responsiva -->
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="bg-slate-50/90 border-b border-slate-200/70 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    <th class="py-3.5 px-5">Cód. Bike</th>
+                    <th class="py-3.5 px-4">Cliente</th>
+                    <th class="py-3.5 px-4">Início</th>
+                    <th class="py-3.5 px-4">Tempo / Prev.</th>
+                    <th class="py-3.5 px-5 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="activeRentalsTableBody" class="divide-y divide-slate-100 text-sm">
+                  <!-- Preenchido via JS -->
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Estado Vazio de Locações Ativas -->
+            <div id="emptyActiveRentals" class="hidden py-12 px-4 text-center">
+              <div class="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+                <i data-lucide="bike" class="w-6 h-6"></i>
+              </div>
+              <p class="text-slate-600 font-medium">Nenhuma locação ativa no momento</p>
+              <p class="text-xs text-slate-400 mt-1">Clique em "+ Nova Locação" para registrar a saída de uma bicicleta.</p>
+            </div>
+          </div>
+
+          <!-- Coluna Direita: Frota de Bicicletas -->
+          <div class="lg:col-span-5 xl:col-span-4 bg-white rounded-xl border border-slate-200/80 shadow-sm p-5">
+            <div class="flex items-center justify-between gap-2 mb-4">
+              <h2 class="text-lg font-bold text-slate-800">Frota de Bicicletas</h2>
+              <button onclick="openNewBikeModal()" class="inline-flex items-center gap-1 text-xs font-semibold text-brand-navy hover:text-brand-green bg-slate-100 hover:bg-emerald-50 px-2.5 py-1.5 rounded-lg transition-colors">
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i> Nova Bike
+              </button>
+            </div>
+
+            <!-- Filtros Rápidos de Status da Frota -->
+            <div class="flex items-center gap-1.5 mb-4 overflow-x-auto pb-1">
+              <button onclick="setFleetFilter('todas')" data-filter="todas" class="fleet-filter-btn px-2.5 py-1 rounded-lg text-xs font-semibold bg-brand-navy text-white transition-all whitespace-nowrap">
+                Todas
+              </button>
+              <button onclick="setFleetFilter('disponivel')" data-filter="disponivel" class="fleet-filter-btn px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200/70 transition-all whitespace-nowrap">
+                Disponíveis
+              </button>
+              <button onclick="setFleetFilter('alugada')" data-filter="alugada" class="fleet-filter-btn px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200/70 transition-all whitespace-nowrap">
+                Alugadas
+              </button>
+              <button onclick="setFleetFilter('manutencao')" data-filter="manutencao" class="fleet-filter-btn px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200/70 transition-all whitespace-nowrap">
+                Manutenção
+              </button>
+            </div>
+
+            <!-- Grade de Cards das Bikes (3 colunas como no protótipo) -->
+            <div id="fleetGrid" class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-[520px] overflow-y-auto pr-1">
+              <!-- Preenchido via JS -->
+            </div>
+
+            <p class="mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-400 flex items-center gap-1.5">
+              <i data-lucide="info" class="w-3.5 h-3.5 text-slate-400 shrink-0"></i>
+              Clique em uma bicicleta para alugar ou alterar manutenção.
+            </p>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ============================================================== -->
+      <!-- ABA 2: GESTÃO COMPLETA DA FROTA                                -->
+      <!-- ============================================================== -->
+      <section id="view-fleet" class="hidden space-y-5">
+        <div class="flex flex-wrap items-center justify-between gap-4 bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm">
+          <div>
+            <h1 class="text-xl font-bold text-slate-800">Cadastro e Controle da Frota</h1>
+            <p class="text-sm text-slate-500">Gerencie modelos, códigos de identificação e status de manutenção.</p>
+          </div>
+          <button onclick="openNewBikeModal()" class="inline-flex items-center gap-2 bg-brand-navy hover:bg-brand-navyLight text-white font-semibold text-sm px-4 py-2.5 rounded-lg transition-colors">
+            <i data-lucide="plus" class="w-4 h-4"></i> Cadastrar Bicicleta
+          </button>
+        </div>
+
+        <div class="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-slate-50 border-b border-slate-200/70 text-xs font-semibold text-slate-500 uppercase">
+                  <th class="py-3.5 px-5">Código</th>
+                  <th class="py-3.5 px-4">Modelo / Descrição</th>
+                  <th class="py-3.5 px-4">Status Atual</th>
+                  <th class="py-3.5 px-5 text-right">Ações Rápidas</th>
+                </tr>
+              </thead>
+              <tbody id="fullFleetTableBody" class="divide-y divide-slate-100 text-sm">
+                <!-- Preenchido via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================== -->
+      <!-- ABA 3: CLIENTES CADASTRADOS                                    -->
+      <!-- ============================================================== -->
+      <section id="view-clients" class="hidden space-y-5">
+        <div class="flex flex-wrap items-center justify-between gap-4 bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm">
+          <div>
+            <h1 class="text-xl font-bold text-slate-800">Base de Clientes</h1>
+            <p class="text-sm text-slate-500">Clientes cadastrados para agilizar o atendimento no balcão.</p>
+          </div>
+          <button onclick="openNewClientModal()" class="inline-flex items-center gap-2 bg-brand-navy hover:bg-brand-navyLight text-white font-semibold text-sm px-4 py-2.5 rounded-lg transition-colors">
+            <i data-lucide="user-plus" class="w-4 h-4"></i> Novo Cliente
+          </button>
+        </div>
+
+        <div class="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-slate-50 border-b border-slate-200/70 text-xs font-semibold text-slate-500 uppercase">
+                  <th class="py-3.5 px-5">Nome Completo</th>
+                  <th class="py-3.5 px-4">Telefone / WhatsApp</th>
+                  <th class="py-3.5 px-4">Documento (CPF/RG)</th>
+                  <th class="py-3.5 px-4">Locações</th>
+                  <th class="py-3.5 px-5 text-right">Ação</th>
+                </tr>
+              </thead>
+              <tbody id="clientsTableBody" class="divide-y divide-slate-100 text-sm">
+                <!-- Preenchido via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================== -->
+      <!-- ABA 4: HISTÓRICO DE LOCAÇÕES E CAIXA                           -->
+      <!-- ============================================================== -->
+      <section id="view-history" class="hidden space-y-5">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm">
+            <span class="text-xs font-semibold uppercase text-slate-400">Locações Concluídas</span>
+            <p id="hist-total-count" class="text-2xl font-extrabold text-slate-800 mt-1">0</p>
+          </div>
+          <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm">
+            <span class="text-xs font-semibold uppercase text-slate-400">Faturamento Registrado</span>
+            <p id="hist-total-revenue" class="text-2xl font-extrabold text-emerald-600 mt-1">R$ 0,00</p>
+          </div>
+          <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm">
+            <span class="text-xs font-semibold uppercase text-slate-400">Ticket Médio</span>
+            <p id="hist-avg-ticket" class="text-2xl font-extrabold text-brand-navy mt-1">R$ 0,00</p>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
+          <div class="px-5 py-4 border-b border-slate-100">
+            <h2 class="text-lg font-bold text-slate-800">Histórico de Devoluções</h2>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-slate-50 border-b border-slate-200/70 text-xs font-semibold text-slate-500 uppercase">
+                  <th class="py-3.5 px-5">Bike</th>
+                  <th class="py-3.5 px-4">Cliente</th>
+                  <th class="py-3.5 px-4">Retirada</th>
+                  <th class="py-3.5 px-4">Devolução</th>
+                  <th class="py-3.5 px-5 text-right">Valor Cobrado</th>
+                </tr>
+              </thead>
+              <tbody id="historyTableBody" class="divide-y divide-slate-100 text-sm">
+                <!-- Preenchido via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ==================================================================== -->
+  <!-- MODAL 1: NOVA LOCAÇÃO (BALCÃO RÁPIDO)                                -->
+  <!-- ==================================================================== -->
+  <div id="newRentalModal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-[fadeIn_0.15s_ease-out]">
+      <div class="bg-brand-navy px-6 py-4 flex items-center justify-between text-white">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-brand-green flex items-center justify-center">
+            <i data-lucide="bike" class="w-4 h-4 text-white"></i>
+          </div>
+          <h3 class="font-bold text-lg">Nova Locação</h3>
+        </div>
+        <button onclick="closeModal('newRentalModal')" class="text-slate-300 hover:text-white p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="newRentalForm" onsubmit="submitNewRental(event)" class="p-6 space-y-4">
+        <!-- Seleção de Bicicleta Disponível -->
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">1. Escolha a Bicicleta Disponível *</label>
+          <select id="rentalBikeSelect" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:bg-white focus:border-brand-green focus:ring-2 focus:ring-brand-green/20 outline-none">
+            <!-- Preenchido via JS -->
+          </select>
+        </div>
+
+        <!-- Seleção de Cliente ou Cadastro Rápido -->
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-500">2. Cliente *</label>
+            <button type="button" onclick="toggleQuickClientFields()" id="toggleQuickClientBtn" class="text-xs font-semibold text-brand-green hover:underline flex items-center gap-1">
+              <i data-lucide="user-plus" class="w-3.5 h-3.5"></i> + Cadastrar novo cliente agora
+            </button>
+          </div>
+
+          <!-- Select Cliente Existente -->
+          <div id="existingClientGroup">
+            <select id="rentalClientSelect" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:bg-white focus:border-brand-green focus:ring-2 focus:ring-brand-green/20 outline-none">
+              <!-- Preenchido via JS -->
+            </select>
+          </div>
+
+          <!-- Campos Cadastro Rápido Inline -->
+          <div id="quickClientGroup" class="hidden space-y-3 p-3.5 bg-emerald-50/60 border border-emerald-200/80 rounded-xl mt-2">
+            <p class="text-xs font-semibold text-emerald-800">Cadastro Rápido de Cliente</p>
+            <input type="text" id="quickClientName" placeholder="Nome completo *" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:border-brand-green">
+            <div class="grid grid-cols-2 gap-2.5">
+              <input type="text" id="quickClientPhone" placeholder="Telefone / WhatsApp *" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:border-brand-green">
+              <input type="text" id="quickClientDoc" placeholder="CPF ou RG" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:border-brand-green">
+            </div>
+          </div>
+        </div>
+
+        <!-- Tarifa / Valor por Hora -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Tarifa por Hora (R$)</label>
+            <input type="number" id="rentalHourlyRate" value="15.00" step="0.50" min="1" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:bg-white focus:border-brand-green outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Horário de Saída</label>
+            <input type="text" id="rentalStartDisplay" readonly class="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm font-medium text-slate-500 cursor-not-allowed">
+          </div>
+        </div>
+
+        <div class="pt-3 flex items-center justify-end gap-2.5 border-t border-slate-100">
+          <button type="button" onclick="closeModal('newRentalModal')" class="px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
+            Cancelar
+          </button>
+          <button type="submit" class="px-5 py-2.5 text-sm font-semibold text-white bg-brand-green hover:bg-brand-greenHover rounded-xl shadow-sm shadow-brand-green/30 transition-all flex items-center gap-2">
+            <i data-lucide="check" class="w-4 h-4"></i> Iniciar Locação
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================================================================== -->
+  <!-- MODAL 2: FINALIZAR LOCAÇÃO (CHECKOUT / DEVOLUÇÃO)                    -->
+  <!-- ==================================================================== -->
+  <div id="finishRentalModal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden">
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+        <h3 class="font-bold text-lg text-slate-800">Encerrar Locação</h3>
+        <button onclick="closeModal('finishRentalModal')" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="p-6 space-y-4">
+        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200/70 space-y-2 text-sm">
+          <div class="flex justify-between">
+            <span class="text-slate-500">Bicicleta:</span>
+            <span id="finBikeCode" class="font-bold text-slate-800">BIKE-01</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-500">Cliente:</span>
+            <span id="finClientName" class="font-semibold text-slate-800">João Silva</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-500">Retirada:</span>
+            <span id="finStartTime" class="text-slate-700">--:--</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-500">Tempo Utilizado:</span>
+            <span id="finDuration" class="font-semibold text-blue-600">0h 00m</span>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Valor Final a Cobrar (R$)</label>
+          <input type="number" id="finFinalValue" step="0.50" min="0" class="w-full px-4 py-3 bg-emerald-50/50 border border-emerald-200 rounded-xl text-xl font-extrabold text-emerald-700 focus:bg-white focus:border-brand-green outline-none">
+          <p class="text-[11px] text-slate-400 mt-1">Valor calculado automaticamente (mínimo 1h). Você pode ajustar antes de confirmar.</p>
+        </div>
+
+        <input type="hidden" id="finRentalId">
+
+        <div class="pt-2 flex items-center justify-end gap-2.5">
+          <button type="button" onclick="closeModal('finishRentalModal')" class="px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl">
+            Voltar
+          </button>
+          <button type="button" onclick="confirmFinishRental()" class="px-5 py-2.5 text-sm font-semibold text-white bg-brand-green hover:bg-brand-greenHover rounded-xl shadow-sm flex items-center gap-2">
+            <i data-lucide="check-circle" class="w-4 h-4"></i> Confirmar Devolução
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================================================================== -->
+  <!-- MODAL 3: CADASTRAR NOVA BICICLETA                                    -->
+  <!-- ==================================================================== -->
+  <div id="newBikeModal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden">
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+        <h3 class="font-bold text-lg text-slate-800">Cadastrar Bicicleta</h3>
+        <button onclick="closeModal('newBikeModal')" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <form onsubmit="submitNewBike(event)" class="p-6 space-y-4">
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Código de Identificação *</label>
+          <input type="text" id="bikeCodeInput" placeholder="Ex: BIKE-13" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold uppercase focus:bg-white focus:border-brand-green outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Modelo / Tipo *</label>
+          <input type="text" id="bikeModelInput" placeholder="Ex: Mountain Bike Aro 29" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:border-brand-green outline-none">
+        </div>
+        <div class="pt-2 flex justify-end gap-2">
+          <button type="button" onclick="closeModal('newBikeModal')" class="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl">Cancelar</button>
+          <button type="submit" class="px-5 py-2 text-sm font-semibold text-white bg-brand-navy hover:bg-brand-navyLight rounded-xl">Salvar Bike</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================================================================== -->
+  <!-- MODAL 4: CADASTRAR NOVO CLIENTE                                      -->
+  <!-- ==================================================================== -->
+  <div id="newClientModal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden">
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+        <h3 class="font-bold text-lg text-slate-800">Novo Cliente</h3>
+        <button onclick="closeModal('newClientModal')" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <form onsubmit="submitNewClient(event)" class="p-6 space-y-4">
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Nome Completo *</label>
+          <input type="text" id="clientNameInput" required placeholder="Ex: Mariana Costa" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:border-brand-green outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Telefone / WhatsApp *</label>
+          <input type="text" id="clientPhoneInput" required placeholder="(67) 99999-0000" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:border-brand-green outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Documento (CPF ou RG)</label>
+          <input type="text" id="clientDocInput" placeholder="000.000.000-00" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:border-brand-green outline-none">
+        </div>
+        <div class="pt-2 flex justify-end gap-2">
+          <button type="button" onclick="closeModal('newClientModal')" class="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl">Cancelar</button>
+          <button type="submit" class="px-5 py-2 text-sm font-semibold text-white bg-brand-navy hover:bg-brand-navyLight rounded-xl">Salvar Cliente</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================================================================== -->
+  <!-- MODAL 5: AÇÃO RÁPIDA NA BICICLETA (STATUS / ALUGAR)                  -->
+  <!-- ==================================================================== -->
+  <div id="bikeActionModal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-sm overflow-hidden">
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div>
+          <h3 id="actionBikeTitle" class="font-bold text-lg text-slate-800">BIKE-01</h3>
+          <p id="actionBikeModel" class="text-xs text-slate-500">Modelo Urbano</p>
+        </div>
+        <button onclick="closeModal('bikeActionModal')" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div id="bikeActionContent" class="p-6 space-y-3">
+        <!-- Preenchido dinamicamente -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================================================================== -->
+  <!-- MODAL 6: CONFIRMAR RESET DE DADOS DEMO                               -->
+  <!-- ==================================================================== -->
+  <div id="resetDemoModal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-sm p-6 space-y-4">
+      <div class="flex items-center gap-3 text-amber-600">
+        <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+        <h3 class="font-bold text-lg text-slate-800">Restaurar Dados de Teste?</h3>
+      </div>
+      <p class="text-sm text-slate-600">Isso irá apagar as alterações feitas durante seus testes e restaurar as bicicletas, clientes e locações iniciais de exemplo.</p>
+      <div class="flex justify-end gap-2 pt-2">
+        <button onclick="closeModal('resetDemoModal')" class="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl">Cancelar</button>
+        <button onclick="confirmResetDemo()" class="px-4 py-2 text-sm font-semibold text-white bg-amber-600 hover:bg-amber-700 rounded-xl">Restaurar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Container de Notificações Toast -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none"></div>
+
+  <!-- ==================================================================== -->
+  <!-- LÓGICA DA APLICAÇÃO (ESTRUTURA ESPELHADA NO SUPABASE)                -->
+  <!-- ==================================================================== -->
+  <script>
+    // Chave de armazenamento local para persistir os testes no navegador
+    const STORAGE_KEY = 'rent_a_bike_state_v1';
+
+    // Estado inicial espelhando as 3 tabelas do Supabase: bikes, clientes, locacoes
+    function getInitialSeedData() {
+      const now = Date.now();
+      const mins = (m) => new Date(now - m * 60000).toISOString();
+
+      return {
+        bikes: [
+          { id: 'b-01', codigo: 'BIKE-01', modelo: 'Urbana Comfort Aro 26', status: 'alugada' },
+          { id: 'b-02', codigo: 'BIKE-02', modelo: 'Mountain Bike Aro 29', status: 'alugada' },
+          { id: 'b-03', codigo: 'BIKE-03', modelo: 'Mountain Bike Aro 29', status: 'alugada' },
+          { id: 'b-04', codigo: 'BIKE-04', modelo: 'Passeio Retrô Cesta', status: 'disponivel' },
+          { id: 'b-05', codigo: 'BIKE-05', modelo: 'Urbana Comfort Aro 26', status: 'alugada' },
+          { id: 'b-06', codigo: 'BIKE-06', modelo: 'Speed Road Alumínio', status: 'manutencao' },
+          { id: 'b-07', codigo: 'BIKE-07', modelo: 'Urbana Comfort Aro 26', status: 'disponivel' },
+          { id: 'b-08', codigo: 'BIKE-08', modelo: 'Mountain Bike Aro 29', status: 'disponivel' },
+          { id: 'b-09', codigo: 'BIKE-09', modelo: 'Infantil Aro 20', status: 'manutencao' },
+          { id: 'b-10', codigo: 'BIKE-10', modelo: 'Passeio Retrô Cesta', status: 'disponivel' },
+          { id: 'b-11', codigo: 'BIKE-11', modelo: 'Elétrica Assistida E-Bike', status: 'disponivel' },
+          { id: 'b-12', codigo: 'BIKE-12', modelo: 'Mountain Bike Aro 29', status: 'disponivel' },
+        ],
+        clientes: [
+          { id: 'c-01', nome: 'João Silva', telefone: '(67) 99812-3456', documento: '123.456.789-00' },
+          { id: 'c-02', nome: 'Mariana Oliveira', telefone: '(67) 99123-9876', documento: '234.567.890-11' },
+          { id: 'c-03', nome: 'Carlos Mendes', telefone: '(67) 98456-1122', documento: '345.678.901-22' },
+          { id: 'c-04', nome: 'Ana Beatriz Souza', telefone: '(67) 99234-5566', documento: '456.789.012-33' },
+          { id: 'c-05', nome: 'Lucas Ferreira', telefone: '(67) 99654-7788', documento: '567.890.123-44' },
+        ],
+        locacoes: [
+          // Locações ativas
+          { id: 'l-101', bike_id: 'b-01', cliente_id: 'c-01', data_inicio: mins(85), data_fim: null, tarifa_hora: 15.00, valor: null, status_locacao: 'ativa' },
+          { id: 'l-102', bike_id: 'b-02', cliente_id: 'c-02', data_inicio: mins(42), data_fim: null, tarifa_hora: 20.00, valor: null, status_locacao: 'ativa' },
+          { id: 'l-103', bike_id: 'b-03', cliente_id: 'c-03', data_inicio: mins(130), data_fim: null, tarifa_hora: 20.00, valor: null, status_locacao: 'ativa' },
+          { id: 'l-104', bike_id: 'b-05', cliente_id: 'c-04', data_inicio: mins(18), data_fim: null, tarifa_hora: 15.00, valor: null, status_locacao: 'ativa' },
+          // Locações já concluídas hoje (Histórico)
+          { id: 'l-099', bike_id: 'b-07', cliente_id: 'c-05', data_inicio: mins(300), data_fim: mins(180), tarifa_hora: 15.00, valor: 30.00, status_locacao: 'concluida' },
+          { id: 'l-100', bike_id: 'b-11', cliente_id: 'c-01', data_inicio: mins(240), data_fim: mins(150), tarifa_hora: 30.00, valor: 45.00, status_locacao: 'concluida' },
+        ]
+      };
+    }
+
+    // Carrega estado do localStorage ou inicializa com dados de exemplo
+    let db = loadState();
+    let currentTab = 'dashboard';
+    let currentFleetFilter = 'todas';
+    let searchQuery = '';
+    let isQuickClientMode = false;
+
+    function loadState() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) return JSON.parse(saved);
+      } catch (e) {
+        console.warn('Erro ao ler localStorage:', e);
+      }
+      const seed = getInitialSeedData();
+      saveState(seed);
+      return seed;
+    }
+
+    function saveState(state = db) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      } catch (e) {
+        console.warn('Erro ao salvar no localStorage:', e);
+      }
+    }
+
+    // Helpers de formatação
+    function formatCurrency(val) {
+      return Number(val || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+
+    function formatDateTime(isoString) {
+      if (!isoString) return '-';
+      const d = new Date(isoString);
+      return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' - ' +
+             d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function getElapsedInfo(startIso, hourlyRate = 15) {
+      const start = new Date(startIso).getTime();
+      const diffMs = Math.max(0, Date.now() - start);
+      const totalMins = Math.floor(diffMs / 60000);
+      const hours = Math.floor(totalMins / 60);
+      const mins = totalMins % 60;
+      const formatted = `${hours}h ${String(mins).padStart(2, '0')}m`;
+
+      // Cobrança mínima de 1 hora, depois proporcional a cada 15 min ou hora cheia
+      const billableHours = Math.max(1, Math.ceil((totalMins / 60) * 2) / 2);
+      const estimatedValue = billableHours * hourlyRate;
+
+      return { formatted, totalMins, estimatedValue };
+    }
+
+    // =========================================================================
+    // RENDERIZAÇÃO DO PAINEL E COMPONENTES
+    // =========================================================================
+    function renderAll() {
+      renderKPIs();
+      renderActiveRentals();
+      renderFleetGrid();
+      renderFullFleetTable();
+      renderClientsTable();
+      renderHistoryView();
+      lucide.createIcons();
+    }
+
+    function renderKPIs() {
+      const total = db.bikes.length;
+      const available = db.bikes.filter(b => b.status === 'disponivel').length;
+      const rented = db.bikes.filter(b => b.status === 'alugada').length;
+      const maintenance = db.bikes.filter(b => b.status === 'manutencao').length;
+
+      const pct = (n) => total > 0 ? Math.round((n / total) * 100) : 0;
+
+      document.getElementById('kpi-total').textContent = total;
+      document.getElementById('kpi-available').textContent = available;
+      document.getElementById('kpi-rented').textContent = rented;
+      document.getElementById('kpi-maintenance').textContent = maintenance;
+
+      document.getElementById('kpi-available-pct').textContent = `${pct(available)}%`;
+      document.getElementById('kpi-rented-pct').textContent = `${pct(rented)}%`;
+      document.getElementById('kpi-maintenance-pct').textContent = `${pct(maintenance)}%`;
+
+      document.getElementById('bar-available').style.width = `${pct(available)}%`;
+      document.getElementById('bar-rented').style.width = `${pct(rented)}%`;
+      document.getElementById('bar-maintenance').style.width = `${pct(maintenance)}%`;
+    }
+
+    function renderActiveRentals() {
+      const tbody = document.getElementById('activeRentalsTableBody');
+      const emptyBox = document.getElementById('emptyActiveRentals');
+      const badge = document.getElementById('activeRentalsBadge');
+
+      const active = db.locacoes
+        .filter(l => l.status_locacao === 'ativa')
+        .map(loc => {
+          const bike = db.bikes.find(b => b.id === loc.bike_id) || { codigo: '???', modelo: '' };
+          const cliente = db.clientes.find(c => c.id === loc.cliente_id) || { nome: 'Cliente Removido' };
+          return { ...loc, bike, cliente };
+        })
+        .filter(item => {
+          if (!searchQuery) return true;
+          const q = searchQuery.toLowerCase();
+          return item.bike.codigo.toLowerCase().includes(q) || item.cliente.nome.toLowerCase().includes(q);
+        })
+        .sort((a, b) => new Date(b.data_inicio) - new Date(a.data_inicio));
+
+      badge.textContent = active.length;
+
+      if (active.length === 0) {
+        tbody.innerHTML = '';
+        emptyBox.classList.remove('hidden');
+        return;
+      }
+
+      emptyBox.classList.add('hidden');
+      tbody.innerHTML = active.map(item => {
+        const elapsed = getElapsedInfo(item.data_inicio, item.tarifa_hora);
+        return `
+          <tr class="hover:bg-slate-50/80 transition-colors group">
+            <td class="py-3.5 px-5 whitespace-nowrap">
+              <div class="flex items-center gap-2.5">
+                <span class="w-2.5 h-2.5 rounded-full bg-blue-600 shrink-0"></span>
+                <div>
+                  <span class="font-bold text-slate-800 block">${item.bike.codigo}</span>
+                  <span class="text-[11px] text-slate-400 hidden sm:block">${item.bike.modelo}</span>
+                </div>
+              </div>
+            </td>
+            <td class="py-3.5 px-4">
+              <span class="font-medium text-slate-700 block">${item.cliente.nome}</span>
+              <span class="text-xs text-slate-400">${item.cliente.telefone || ''}</span>
+            </td>
+            <td class="py-3.5 px-4 whitespace-nowrap text-slate-600 text-xs sm:text-sm">
+              ${formatDateTime(item.data_inicio)}
+            </td>
+            <td class="py-3.5 px-4 whitespace-nowrap">
+              <span class="inline-flex items-center gap-1 text-xs font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md">
+                <i data-lucide="timer" class="w-3 h-3"></i> ${elapsed.formatted}
+              </span>
+              <span class="block text-[11px] text-slate-400 mt-0.5">Est: ${formatCurrency(elapsed.estimatedValue)}</span>
+            </td>
+            <td class="py-3.5 px-5 text-right whitespace-nowrap">
+              <button onclick="openFinishRentalModal('${item.id}')" class="bg-brand-green hover:bg-brand-greenHover active:scale-[0.97] text-white font-semibold text-xs sm:text-sm px-4 py-2 rounded-lg shadow-xs transition-all cursor-pointer">
+                Finalizar
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderFleetGrid() {
+      const grid = document.getElementById('fleetGrid');
+      const filteredBikes = db.bikes.filter(bike => {
+        const matchesStatus = currentFleetFilter === 'todas' || bike.status === currentFleetFilter;
+        const matchesSearch = !searchQuery ||
+          bike.codigo.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          bike.modelo.toLowerCase().includes(searchQuery.toLowerCase());
+        return matchesStatus && matchesSearch;
+      });
+
+      if (filteredBikes.length === 0) {
+        grid.innerHTML = `<div class="col-span-full py-8 text-center text-xs text-slate-400">Nenhuma bicicleta encontrada para este filtro.</div>`;
+        return;
+      }
+
+      grid.innerHTML = filteredBikes.map(bike => {
+        let badgeStyle = '';
+        let badgeLabel = '';
+        let cardBorder = 'border-slate-200/90 hover:border-slate-300';
+
+        if (bike.status === 'disponivel') {
+          badgeStyle = 'bg-brand-green text-white';
+          badgeLabel = 'Disponível';
+          cardBorder = 'border-slate-200/90 hover:border-emerald-400';
+        } else if (bike.status === 'alugada') {
+          badgeStyle = 'bg-blue-600 text-white';
+          badgeLabel = 'Alugada';
+          cardBorder = 'border-blue-100 bg-blue-50/20 hover:border-blue-300';
+        } else {
+          badgeStyle = 'bg-amber-500 text-white';
+          badgeLabel = 'Manutenção';
+          cardBorder = 'border-amber-100 bg-amber-50/20 hover:border-amber-300';
+        }
+
+        return `
+          <button onclick="openBikeActionModal('${bike.id}')" class="flex flex-col items-center justify-center p-3 rounded-xl border ${cardBorder} bg-white shadow-2xs hover:shadow-sm transition-all text-center cursor-pointer active:scale-[0.98]">
+            <span class="font-bold text-xs sm:text-sm text-slate-800 tracking-tight mb-1.5">${bike.codigo}</span>
+            <span class="${badgeStyle} text-[11px] font-semibold px-2.5 py-0.5 rounded-full w-full truncate">
+              ${badgeLabel}
+            </span>
+          </button>
+        `;
+      }).join('');
+    }
+
+    function renderFullFleetTable() {
+      const tbody = document.getElementById('fullFleetTableBody');
+      tbody.innerHTML = db.bikes.map(bike => {
+        const statusBadges = {
+          disponivel: '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">Disponível</span>',
+          alugada: '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">Alugada</span>',
+          manutencao: '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">Em Manutenção</span>'
+        };
+
+        let actionHtml = '';
+        if (bike.status === 'disponivel') {
+          actionHtml = `
+            <button onclick="quickStartRentForBike('${bike.id}')" class="text-xs font-semibold text-emerald-700 hover:underline mr-3">Alugar</button>
+            <button onclick="setBikeStatus('${bike.id}', 'manutencao')" class="text-xs font-semibold text-amber-600 hover:underline">Enviar p/ Manutenção</button>
+          `;
+        } else if (bike.status === 'manutencao') {
+          actionHtml = `
+            <button onclick="setBikeStatus('${bike.id}', 'disponivel')" class="text-xs font-semibold text-emerald-700 hover:underline">Liberar Manutenção</button>
+          `;
+        } else {
+          actionHtml = `<span class="text-xs text-slate-400 italic">Em uso no momento</span>`;
+        }
+
+        return `
+          <tr class="hover:bg-slate-50">
+            <td class="py-3.5 px-5 font-bold text-slate-800">${bike.codigo}</td>
+            <td class="py-3.5 px-4 text-slate-600">${bike.modelo}</td>
+            <td class="py-3.5 px-4">${statusBadges[bike.status]}</td>
+            <td class="py-3.5 px-5 text-right">${actionHtml}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderClientsTable() {
+      const tbody = document.getElementById('clientsTableBody');
+      tbody.innerHTML = db.clientes.map(c => {
+        const count = db.locacoes.filter(l => l.cliente_id === c.id).length;
+        return `
+          <tr class="hover:bg-slate-50">
+            <td class="py-3.5 px-5 font-semibold text-slate-800">${c.nome}</td>
+            <td class="py-3.5 px-4 text-slate-600">${c.telefone}</td>
+            <td class="py-3.5 px-4 text-slate-500 font-mono text-xs">${c.documento || 'Não informado'}</td>
+            <td class="py-3.5 px-4">
+              <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">${count} locação(ões)</span>
+            </td>
+            <td class="py-3.5 px-5 text-right">
+              <button onclick="openNewRentalForClient('${c.id}')" class="text-xs font-semibold text-brand-green hover:underline">+ Nova Locação</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderHistoryView() {
+      const completed = db.locacoes
+        .filter(l => l.status_locacao === 'concluida')
+        .sort((a, b) => new Date(b.data_fim) - new Date(a.data_fim));
+
+      const totalRevenue = completed.reduce((acc, item) => acc + Number(item.valor || 0), 0);
+      const avgTicket = completed.length > 0 ? totalRevenue / completed.length : 0;
+
+      document.getElementById('hist-total-count').textContent = completed.length;
+      document.getElementById('hist-total-revenue').textContent = formatCurrency(totalRevenue);
+      document.getElementById('hist-avg-ticket').textContent = formatCurrency(avgTicket);
+
+      const tbody = document.getElementById('historyTableBody');
+      if (completed.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-slate-400">Nenhuma locação concluída ainda.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = completed.map(loc => {
+        const bike = db.bikes.find(b => b.id === loc.bike_id) || { codigo: '---' };
+        const cliente = db.clientes.find(c => c.id === loc.cliente_id) || { nome: '---' };
+        return `
+          <tr class="hover:bg-slate-50">
+            <td class="py-3.5 px-5 font-bold text-slate-800">${bike.codigo}</td>
+            <td class="py-3.5 px-4 text-slate-700">${cliente.nome}</td>
+            <td class="py-3.5 px-4 text-xs text-slate-500">${formatDateTime(loc.data_inicio)}</td>
+            <td class="py-3.5 px-4 text-xs text-slate-500">${formatDateTime(loc.data_fim)}</td>
+            <td class="py-3.5 px-5 text-right font-bold text-emerald-600">${formatCurrency(loc.valor)}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // =========================================================================
+    // NAVEGAÇÃO E FILTROS
+    // =========================================================================
+    function switchTab(tabName) {
+      currentTab = tabName;
+      ['dashboard', 'fleet', 'clients', 'history'].forEach(t => {
+        document.getElementById(`view-${t}`).classList.toggle('hidden', t !== tabName);
+        const btn = document.getElementById(`nav-${t}`);
+        if (t === tabName) {
+          btn.classList.add('bg-brand-navy/10', 'text-brand-navy');
+          btn.classList.remove('text-slate-400');
+        } else {
+          btn.classList.remove('bg-brand-navy/10', 'text-brand-navy');
+          btn.classList.add('text-slate-400');
+        }
+      });
+      renderAll();
+    }
+
+    function setFleetFilter(filter) {
+      currentFleetFilter = filter;
+      document.querySelectorAll('.fleet-filter-btn').forEach(btn => {
+        const isActive = btn.dataset.filter === filter;
+        btn.className = isActive
+          ? 'fleet-filter-btn px-2.5 py-1 rounded-lg text-xs font-semibold bg-brand-navy text-white transition-all whitespace-nowrap'
+          : 'fleet-filter-btn px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200/70 transition-all whitespace-nowrap';
+      });
+      renderFleetGrid();
+    }
+
+    function filterFleetFromKpi(status) {
+      setFleetFilter(status);
+      showToast(`Filtrando frota: ${status.toUpperCase()}`, 'info');
+    }
+
+    function handleSearch(val) {
+      searchQuery = val.trim();
+      document.getElementById('globalSearch').value = val;
+      document.getElementById('mobileSearch').value = val;
+      const clearBtn = document.getElementById('clearSearchBtn');
+      if (clearBtn) clearBtn.classList.toggle('hidden', !searchQuery);
+      renderActiveRentals();
+      renderFleetGrid();
+    }
+
+    function clearSearch() {
+      handleSearch('');
+    }
+
+    // =========================================================================
+    // FLUXO: NOVA LOCAÇÃO
+    // =========================================================================
+    function openNewRentalModal(preselectedBikeId = null, preselectedClientId = null) {
+      const availableBikes = db.bikes.filter(b => b.status === 'disponivel');
+      if (availableBikes.length === 0) {
+        showToast('Não há bicicletas disponíveis no momento!', 'error');
+        return;
+      }
+
+      const bikeSelect = document.getElementById('rentalBikeSelect');
+      bikeSelect.innerHTML = availableBikes.map(b =>
+        `<option value="${b.id}" ${b.id === preselectedBikeId ? 'selected' : ''}>${b.codigo} — ${b.modelo}</option>`
+      ).join('');
+
+      const clientSelect = document.getElementById('rentalClientSelect');
+      clientSelect.innerHTML = db.clientes.map(c =>
+        `<option value="${c.id}" ${c.id === preselectedClientId ? 'selected' : ''}>${c.nome} (${c.telefone})</option>`
+      ).join('');
+
+      // Reset modo cliente rápido
+      isQuickClientMode = false;
+      document.getElementById('existingClientGroup').classList.remove('hidden');
+      document.getElementById('quickClientGroup').classList.add('hidden');
+      document.getElementById('toggleQuickClientBtn').innerHTML = `<i data-lucide="user-plus" class="w-3.5 h-3.5"></i> + Cadastrar novo cliente agora`;
+      document.getElementById('quickClientName').value = '';
+      document.getElementById('quickClientPhone').value = '';
+      document.getElementById('quickClientDoc').value = '';
+
+      document.getElementById('rentalStartDisplay').value = formatDateTime(new Date().toISOString());
+      openModal('newRentalModal');
+      lucide.createIcons();
+    }
+
+    function toggleQuickClientFields() {
+      isQuickClientMode = !isQuickClientMode;
+      const existingGroup = document.getElementById('existingClientGroup');
+      const quickGroup = document.getElementById('quickClientGroup');
+      const btn = document.getElementById('toggleQuickClientBtn');
+
+      if (isQuickClientMode) {
+        existingGroup.classList.add('hidden');
+        quickGroup.classList.remove('hidden');
+        btn.textContent = 'Selecionar cliente já cadastrado';
+        document.getElementById('quickClientName').focus();
+      } else {
+        existingGroup.classList.remove('hidden');
+        quickGroup.classList.add('hidden');
+        btn.innerHTML = `<i data-lucide="user-plus" class="w-3.5 h-3.5"></i> + Cadastrar novo cliente agora`;
+        lucide.createIcons();
+      }
+    }
+
+    function submitNewRental(e) {
+      e.preventDefault();
+      const bikeId = document.getElementById('rentalBikeSelect').value;
+      const hourlyRate = parseFloat(document.getElementById('rentalHourlyRate').value) || 15.00;
+      let clientId = document.getElementById('rentalClientSelect').value;
+
+      // Se optou por cadastro rápido de cliente na hora
+      if (isQuickClientMode) {
+        const name = document.getElementById('quickClientName').value.trim();
+        const phone = document.getElementById('quickClientPhone').value.trim();
+        const doc = document.getElementById('quickClientDoc').value.trim();
+
+        if (!name || !phone) {
+          showToast('Preencha nome e telefone do novo cliente.', 'error');
+          return;
+        }
+
+        const newClient = {
+          id: 'c-' + Date.now(),
+          nome: name,
+          telefone: phone,
+          documento: doc
+        };
+        db.clientes.unshift(newClient);
+        clientId = newClient.id;
+      }
+
+      // Cria o registro na tabela locacoes
+      const newRental = {
+        id: 'l-' + Date.now(),
+        bike_id: bikeId,
+        cliente_id: clientId,
+        data_inicio: new Date().toISOString(),
+        data_fim: null,
+        tarifa_hora: hourlyRate,
+        valor: null,
+        status_locacao: 'ativa'
+      };
+      db.locacoes.unshift(newRental);
+
+      // Atualiza status na tabela bikes para 'alugada'
+      const bike = db.bikes.find(b => b.id === bikeId);
+      if (bike) bike.status = 'alugada';
+
+      saveState();
+      closeModal('newRentalModal');
+      renderAll();
+      showToast(`Locação iniciada para ${bike ? bike.codigo : 'bicicleta'}!`, 'success');
+    }
+
+    // =========================================================================
+    // FLUXO: FINALIZAR LOCAÇÃO (DEVOLUÇÃO)
+    // =========================================================================
+    function openFinishRentalModal(rentalId) {
+      const rental = db.locacoes.find(l => l.id === rentalId);
+      if (!rental) return;
+
+      const bike = db.bikes.find(b => b.id === rental.bike_id);
+      const client = db.clientes.find(c => c.id === rental.cliente_id);
+      const elapsed = getElapsedInfo(rental.data_inicio, rental.tarifa_hora);
+
+      document.getElementById('finRentalId').value = rental.id;
+      document.getElementById('finBikeCode').textContent = bike ? `${bike.codigo} (${bike.modelo})` : '---';
+      document.getElementById('finClientName').textContent = client ? client.nome : '---';
+      document.getElementById('finStartTime').textContent = formatDateTime(rental.data_inicio);
+      document.getElementById('finDuration').textContent = elapsed.formatted;
+      document.getElementById('finFinalValue').value = elapsed.estimatedValue.toFixed(2);
+
+      openModal('finishRentalModal');
+    }
+
+    function confirmFinishRental() {
+      const rentalId = document.getElementById('finRentalId').value;
+      const finalValue = parseFloat(document.getElementById('finFinalValue').value) || 0;
+
+      const rental = db.locacoes.find(l => l.id === rentalId);
+      if (!rental) return;
+
+      // Atualiza locação para 'concluida'
+      rental.status_locacao = 'concluida';
+      rental.data_fim = new Date().toISOString();
+      rental.valor = finalValue;
+
+      // Libera bicicleta na tabela bikes para 'disponivel'
+      const bike = db.bikes.find(b => b.id === rental.bike_id);
+      if (bike) bike.status = 'disponivel';
+
+      saveState();
+      closeModal('finishRentalModal');
+      renderAll();
+      showToast(`${bike ? bike.codigo : 'Bicicleta'} devolvida e disponível novamente!`, 'success');
+    }
+
+    // =========================================================================
+    // AÇÕES DA FROTA E CLIENTES
+    // =========================================================================
+    function openBikeActionModal(bikeId) {
+      const bike = db.bikes.find(b => b.id === bikeId);
+      if (!bike) return;
+
+      document.getElementById('actionBikeTitle').textContent = bike.codigo;
+      document.getElementById('actionBikeModel').textContent = bike.modelo;
+
+      const container = document.getElementById('bikeActionContent');
+
+      if (bike.status === 'disponivel') {
+        container.innerHTML = `
+          <button onclick="closeModal('bikeActionModal'); openNewRentalModal('${bike.id}')" class="w-full py-2.5 px-4 bg-brand-green hover:bg-brand-greenHover text-white font-semibold text-sm rounded-xl flex items-center justify-center gap-2 transition-colors">
+            <i data-lucide="play" class="w-4 h-4"></i> Alugar Esta Bicicleta
+          </button>
+          <button onclick="setBikeStatus('${bike.id}', 'manutencao'); closeModal('bikeActionModal')" class="w-full py-2.5 px-4 bg-amber-50 hover:bg-amber-100 text-amber-800 font-semibold text-sm rounded-xl flex items-center justify-center gap-2 transition-colors">
+            <i data-lucide="wrench" class="w-4 h-4"></i> Colocar em Manutenção
+          </button>
+        `;
+      } else if (bike.status === 'manutencao') {
+        container.innerHTML = `
+          <div class="p-3 bg-amber-50 rounded-xl text-xs text-amber-800 mb-2">
+            Esta bicicleta está bloqueada para locação pois consta em manutenção.
+          </div>
+          <button onclick="setBikeStatus('${bike.id}', 'disponivel'); closeModal('bikeActionModal')" class="w-full py-2.5 px-4 bg-brand-green hover:bg-brand-greenHover text-white font-semibold text-sm rounded-xl flex items-center justify-center gap-2 transition-colors">
+            <i data-lucide="check-circle" class="w-4 h-4"></i> Concluir Manutenção (Disponibilizar)
+          </button>
+        `;
+      } else {
+        const activeRental = db.locacoes.find(l => l.bike_id === bike.id && l.status_locacao === 'ativa');
+        const client = activeRental ? db.clientes.find(c => c.id === activeRental.cliente_id) : null;
+        container.innerHTML = `
+          <div class="p-3 bg-blue-50 rounded-xl text-xs text-blue-800 space-y-1">
+            <p class="font-bold">Bicicleta em uso no momento</p>
+            <p>Cliente: <strong>${client ? client.nome : '---'}</strong></p>
+          </div>
+          ${activeRental ? `
+            <button onclick="closeModal('bikeActionModal'); openFinishRentalModal('${activeRental.id}')" class="w-full py-2.5 px-4 bg-brand-navy hover:bg-brand-navyLight text-white font-semibold text-sm rounded-xl flex items-center justify-center gap-2 transition-colors">
+              <i data-lucide="check-square" class="w-4 h-4"></i> Ir para Devolução
+            </button>
+          ` : ''}
+        `;
+      }
+
+      openModal('bikeActionModal');
+      lucide.createIcons();
+    }
+
+    function setBikeStatus(bikeId, newStatus) {
+      const bike = db.bikes.find(b => b.id === bikeId);
+      if (!bike) return;
+      bike.status = newStatus;
+      saveState();
+      renderAll();
+      const label = newStatus === 'disponivel' ? 'Disponível' : 'Em Manutenção';
+      showToast(`${bike.codigo} marcada como ${label}.`, 'info');
+    }
+
+    function quickStartRentForBike(bikeId) {
+      openNewRentalModal(bikeId, null);
+    }
+
+    function openNewRentalForClient(clientId) {
+      openNewRentalModal(null, clientId);
+    }
+
+    function openNewBikeModal() {
+      const nextNum = String(db.bikes.length + 1).padStart(2, '0');
+      document.getElementById('bikeCodeInput').value = `BIKE-${nextNum}`;
+      document.getElementById('bikeModelInput').value = '';
+      openModal('newBikeModal');
+    }
+
+    function submitNewBike(e) {
+      e.preventDefault();
+      const codigo = document.getElementById('bikeCodeInput').value.trim().toUpperCase();
+      const modelo = document.getElementById('bikeModelInput').value.trim();
+
+      if (db.bikes.some(b => b.codigo === codigo)) {
+        showToast(`Já existe uma bicicleta com o código ${codigo}.`, 'error');
+        return;
+      }
+
+      db.bikes.push({
+        id: 'b-' + Date.now(),
+        codigo,
+        modelo,
+        status: 'disponivel'
+      });
+
+      saveState();
+      closeModal('newBikeModal');
+      renderAll();
+      showToast(`${codigo} adicionada à frota!`, 'success');
+    }
+
+    function openNewClientModal() {
+      document.getElementById('clientNameInput').value = '';
+      document.getElementById('clientPhoneInput').value = '';
+      document.getElementById('clientDocInput').value = '';
+      openModal('newClientModal');
+    }
+
+    function submitNewClient(e) {
+      e.preventDefault();
+      const nome = document.getElementById('clientNameInput').value.trim();
+      const telefone = document.getElementById('clientPhoneInput').value.trim();
+      const documento = document.getElementById('clientDocInput').value.trim();
+
+      db.clientes.unshift({
+        id: 'c-' + Date.now(),
+        nome,
+        telefone,
+        documento
+      });
+
+      saveState();
+      closeModal('newClientModal');
+      renderAll();
+      showToast(`Cliente ${nome} cadastrado com sucesso!`, 'success');
+    }
+
+    // =========================================================================
+    // CONTROLE DE MODAIS, TOASTS E RESET
+    // =========================================================================
+    function openModal(id) {
+      document.getElementById(id).classList.remove('hidden');
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.add('hidden');
+    }
+
+    function openResetModal() {
+      openModal('resetDemoModal');
+    }
+
+    function confirmResetDemo() {
+      db = getInitialSeedData();
+      saveState();
+      closeModal('resetDemoModal');
+      renderAll();
+      showToast('Dados de demonstração restaurados!', 'info');
+    }
+
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+
+      const styles = {
+        success: 'bg-slate-900 text-white border-l-4 border-brand-green',
+        error: 'bg-slate-900 text-white border-l-4 border-rose-500',
+        info: 'bg-slate-900 text-white border-l-4 border-blue-500'
+      };
+
+      toast.className = `toast-enter pointer-events-auto px-4 py-3 rounded-xl shadow-lg text-sm font-medium flex items-center justify-between gap-3 ${styles[type] || styles.success}`;
+      toast.innerHTML = `<span>${message}</span>`;
+
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(20px)';
+        toast.style.transition = 'all 0.2s ease';
+        setTimeout(() => toast.remove(), 220);
+      }, 3200);
+    }
+
+    // Atualiza contadores de tempo decorrido a cada 30 segundos
+    setInterval(() => {
+      if (currentTab === 'dashboard') {
+        renderActiveRentals();
+        lucide.createIcons();
+      }
+    }, 30000);
+
+    // Inicialização
+    window.addEventListener('DOMContentLoaded', () => {
+      renderAll();
+    });
+  </script>
+</body>
+</html>
